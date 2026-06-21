@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DROP 电竞 · 三角洲行动</title>
+<style>
+/* ========== CSS Variables ========== */
+:root {
+  --bg-deep: #060b14;
+  --bg-card: rgba(14, 20, 38, 0.85);
+  --bg-card-hover: rgba(20, 28, 52, 0.92);
+  --border: rgba(0, 229, 255, 0.12);
+  --border-glow: rgba(0, 229, 255, 0.35);
+  --accent: #00e5ff;
+  --accent-red: #ff3b5c;
+  --accent-orange: #ff9100;
+  --accent-green: #00e676;
+  --text-primary: #e8edf4;
+  --text-secondary: #8892a8;
+  --text-muted: #556078;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ========== Canvas Background ========== */
+#bg-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+/* ========== Scanline Overlay ========== */
+.scanlines {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 229, 255, 0.015) 2px,
+    rgba(0, 229, 255, 0.015) 4px
+  );
+  pointer-events: none; z-index: 1;
+}
+
+/* ========== Main Container ========== */
+.app { position: relative; z-index: 2; max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
+
+/* ========== Header ========== */
+.header {
+  padding: 48px 0 12px;
+  text-align: center;
+  position: relative;
+}
+.header-logo {
+  font-size: 4rem; font-weight: 900; letter-spacing: 12px;
+  background: linear-gradient(135deg, var(--accent), #00b8ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 60px rgba(0, 229, 255, 0.3);
+  margin-bottom: 4px;
+}
+.header-sub {
+  font-size: 1rem; letter-spacing: 8px; color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.header-line {
+  width: 120px; height: 2px; margin: 0 auto 16px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.6;
+}
+.header-tagline {
+  display: flex; justify-content: center; gap: 32px; flex-wrap: wrap;
+}
+.tag {
+  font-size: 0.9rem; padding: 4px 16px;
+  border: 1px solid var(--border); border-radius: 20px;
+  color: var(--text-secondary); letter-spacing: 2px;
+  backdrop-filter: blur(8px);
+  background: rgba(0, 229, 255, 0.03);
+}
+
+/* ========== Section Titles ========== */
+.section { margin-top: 56px; }
+.section-head {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
+}
+.section-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+  background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.2);
+  flex-shrink: 0;
+}
+.section-title {
+  font-size: 1.65rem; font-weight: 800; letter-spacing: 3px;
+}
+.section-sub {
+  font-size: 0.85rem; color: var(--text-muted); margin-left: auto;
+}
+
+/* ========== Battle Records - Filter Tabs ========== */
+.filter-tabs {
+  display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap;
+}
+.filter-tab {
+  padding: 8px 22px; border-radius: 22px; font-size: 0.9rem; font-weight: 600;
+  letter-spacing: 2px; cursor: pointer; transition: all 0.25s;
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-secondary);
+}
+.filter-tab:hover { border-color: var(--accent); color: var(--text-primary); }
+.filter-tab.active {
+  background: rgba(0, 229, 255, 0.1); border-color: var(--accent);
+  color: var(--accent); box-shadow: 0 0 20px rgba(0, 229, 255, 0.15);
+}
+.filter-tab[data-tag="背刺"].active {
+  background: rgba(255, 59, 92, 0.1); border-color: var(--accent-red);
+  color: var(--accent-red); box-shadow: 0 0 20px rgba(255, 59, 92, 0.15);
+}
+.filter-tab[data-tag="放血"].active {
+  background: rgba(255, 145, 0, 0.1); border-color: var(--accent-orange);
+  color: var(--accent-orange); box-shadow: 0 0 20px rgba(255, 145, 0, 0.15);
+}
+.filter-tab[data-tag="丢包"].active {
+  background: rgba(0, 230, 118, 0.1); border-color: var(--accent-green);
+  color: var(--accent-green); box-shadow: 0 0 20px rgba(0, 230, 118, 0.15);
+}
+
+/* ========== Battle Record Cards (Grid) ========== */
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.record-card {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.record-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-glow);
+  box-shadow: 0 8px 32px rgba(0, 229, 255, 0.12);
+}
+.record-img-wrap {
+  position: relative; width: 100%; height: 200px; overflow: hidden;
+  background: linear-gradient(135deg, rgba(0,229,255,0.04), rgba(0,153,255,0.02));
+}
+.record-img-wrap img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform 0.4s;
+}
+.record-card:hover .record-img-wrap img { transform: scale(1.05); }
+
+/* placeholder */
+.record-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px;
+  border: 2px dashed rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  margin: 8px; width: calc(100% - 16px); height: calc(100% - 16px);
+}
+.record-placeholder-icon { font-size: 2.5rem; opacity: 0.3; }
+.record-placeholder-text { font-size: 0.8rem; color: var(--text-muted); }
+
+.record-tag {
+  position: absolute; top: 12px; right: 12px;
+  padding: 4px 14px; border-radius: 12px; font-size: 0.75rem;
+  font-weight: 700; letter-spacing: 2px;
+  backdrop-filter: blur(12px);
+}
+.record-tag.背刺 { background: rgba(255,59,92,0.25); color: #ff6b81; border: 1px solid rgba(255,59,92,0.3); }
+.record-tag.放血 { background: rgba(255,145,0,0.25); color: #ffb347; border: 1px solid rgba(255,145,0,0.3); }
+.record-tag.丢包 { background: rgba(0,230,118,0.25); color: #69f0ae; border: 1px solid rgba(0,230,118,0.3); }
+
+/* ========== Pagination ========== */
+.pagination {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin-top: 28px;
+}
+.page-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-secondary); font-size: 1.1rem; cursor: pointer;
+  transition: all 0.25s;
+  display: flex; align-items: center; justify-content: center;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.15);
+}
+.page-btn:disabled {
+  opacity: 0.3; cursor: not-allowed;
+}
+.page-info {
+  font-size: 0.85rem; color: var(--text-secondary);
+  letter-spacing: 1px;
+}
+.page-info strong { color: var(--accent); }
+
+/* ========== Star Players ========== */
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+.player-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.player-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(0, 229, 255, 0.3);
+  box-shadow: 0 12px 48px rgba(0, 229, 255, 0.1), 0 0 0 1px rgba(0, 229, 255, 0.15) inset;
+}
+.player-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-red), var(--accent-orange));
+  opacity: 0; transition: opacity 0.35s; z-index: 3;
+}
+.player-card:hover::before { opacity: 1; }
+
+.player-avatar {
+  width: 100%; height: 240px; overflow: hidden; position: relative;
+  background: linear-gradient(180deg, rgba(0,229,255,0.05), rgba(10,14,23,0.8));
+}
+.player-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform 0.5s;
+}
+.player-card:hover .player-avatar img { transform: scale(1.06); }
+
+/* player placeholder */
+.player-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+}
+.player-placeholder-icon { font-size: 3.5rem; opacity: 0.25; }
+.player-placeholder-hint { font-size: 0.75rem; color: var(--text-muted); }
+
+.player-rank {
+  position: absolute; top: 12px; left: 12px;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 900; color: var(--accent);
+}
+
+.player-info { padding: 20px; position: relative; z-index: 2; }
+.player-name {
+  font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+  letter-spacing: 2px; margin-bottom: 6px;
+}
+.player-specialty {
+  font-size: 0.82rem; color: var(--accent); font-weight: 600;
+  letter-spacing: 2px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.player-specialty::before {
+  content: ''; display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.player-desc {
+  font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;
+}
+
+/* ========== Join Us Section ========== */
+.join-us {
+  margin-top: 64px; padding: 40px 32px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(0,229,255,0.06), rgba(255,59,92,0.04), rgba(255,145,0,0.03));
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.join-us::before {
+  content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(circle at center, rgba(0,229,255,0.04) 0%, transparent 60%);
+  animation: joinGlow 4s ease-in-out infinite;
+}
+@keyframes joinGlow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(10px, -10px); }
+}
+.join-us-inner { position: relative; z-index: 1; }
+.join-us-title {
+  font-size: 1.5rem; font-weight: 900; letter-spacing: 4px;
+  color: var(--text-primary); margin-bottom: 8px;
+}
+.join-us-sub {
+  font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+.join-btn {
+  display: inline-block; padding: 12px 40px;
+  border-radius: 28px; font-size: 1rem; font-weight: 700;
+  letter-spacing: 3px; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), #0091ea);
+  color: #fff; border: none;
+  box-shadow: 0 0 32px rgba(0, 229, 255, 0.25);
+  transition: all 0.3s;
+}
+.join-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 48px rgba(0, 229, 255, 0.4);
+}
+
+/* ========== Join Modal ========== */
+.join-modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.25s;
+}
+.join-modal {
+  background: linear-gradient(160deg, #0f1a30, #0a1120);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  max-width: 480px; width: 90%;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(0,229,255,0.08);
+  position: relative;
+  animation: modalSlideIn 0.3s ease-out;
+}
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.join-modal h3 {
+  font-size: 1.3rem; font-weight: 800; letter-spacing: 4px;
+  color: var(--accent); text-align: center; margin-bottom: 24px;
+}
+.join-modal-close {
+  position: absolute; top: 14px; right: 18px;
+  font-size: 1.4rem; color: var(--text-muted);
+  cursor: pointer; transition: color 0.2s;
+  background: none; border: none; line-height: 1;
+}
+.join-modal-close:hover { color: var(--accent-red); }
+.join-modal .req-line {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 0.9rem; color: var(--text-secondary);
+  line-height: 1.6;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.join-modal .req-line:last-of-type { border-bottom: none; }
+.join-modal .req-icon {
+  flex-shrink: 0; width: 20px; color: var(--accent); font-weight: 700;
+}
+.join-modal .req-highlight {
+  color: var(--accent); font-weight: 600;
+}
+.join-modal .req-tags {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+}
+.join-modal .req-tag {
+  padding: 2px 10px; border-radius: 10px; font-size: 0.75rem;
+  background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2);
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .join-us { padding: 28px 20px; }
+  .join-us-title { font-size: 1.2rem; }
+  .join-modal { padding: 24px 20px; }
+}
+
+/* ========== Footer ========== */
+.footer {
+  text-align: center; margin-top: 80px; padding: 40px 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.footer-brand {
+  font-size: 1.2rem; font-weight: 900; letter-spacing: 8px;
+  color: var(--accent); opacity: 0.5;
+}
+.footer-text { font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; }
+
+/* ========== Animations ========== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.record-card, .player-card {
+  animation: fadeInUp 0.5s ease-out backwards;
+}
+.record-card:nth-child(1) { animation-delay: 0.05s; }
+.record-card:nth-child(2) { animation-delay: 0.1s; }
+.record-card:nth-child(3) { animation-delay: 0.15s; }
+.record-card:nth-child(4) { animation-delay: 0.2s; }
+.record-card:nth-child(5) { animation-delay: 0.25s; }
+.record-card:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 229, 255, 0.08); }
+  50%      { box-shadow: 0 0 40px rgba(0, 229, 255, 0.18); }
+}
+.section-icon { animation: pulse-glow 3s ease-in-out infinite; }
+
+/* ========== Modal for image preview ========== */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85); z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s;
+  cursor: pointer;
+}
+.modal-overlay img {
+  max-width: 92vw; max-height: 90vh;
+  border-radius: 8px; box-shadow: 0 0 60px rgba(0,229,255,0.2);
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ========== Responsive ========== */
+@media (max-width: 640px) {
+  .header-logo { font-size: 2.5rem; letter-spacing: 6px; }
+  .header-sub { font-size: 0.8rem; letter-spacing: 4px; }
+  .section-title { font-size: 1.3rem; }
+  .records-grid { grid-template-columns: 1fr; }
+  .players-grid { grid-template-columns: 1fr; }
+  .header-tagline { gap: 12px; }
+  .tag { font-size: 0.78rem; padding: 4px 12px; }
+}
+
+/* ========== Empty State ========== */
+.empty-state {
+  text-align: center; padding: 60px 20px; color: var(--text-muted);
+}
+.empty-state-icon { font-size: 3rem; opacity: 0.3; display: block; margin-bottom: 12px; }
+.empty-state-text { font-size: 0.92rem; }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+
+<div class="app">
+  <!-- ===== Header ===== -->
+  <header class="header">
+    <h1 class="header-logo">DROP</h1>
+    <p class="header-sub">三角洲行动 · 电竞战绩</p>
+    <div class="header-line"></div>
+    <div class="header-tagline">
+      <span class="tag">🎒 丢包</span>
+      <span class="tag">🗡️ 背刺</span>
+      <span class="tag">🩸 放血</span>
+    </div>
+  </header>
+
+  <!-- ===== 战绩展示 ===== -->
+  <section class="section" id="records">
+    <div class="section-head">
+      <div class="section-icon">🏆</div>
+      <span class="section-title">战绩展示</span>
+      <span class="section-sub">点击截图放大查看</span>
+    </div>
+
+    <!-- 标签筛选 -->
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-tag="all">全部</button>
+      <button class="filter-tab" data-tag="背刺">🗡️ 背刺</button>
+      <button class="filter-tab" data-tag="放血">🩸 放血</button>
+      <button class="filter-tab" data-tag="丢包">📦 丢包</button>
+    </div>
+
+    <!-- 战绩卡片网格 -->
+    <div class="records-grid" id="recordsGrid">
+      <!-- 动态渲染 -->
+    </div>
+
+    <!-- 分页器 -->
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <!-- ===== 明星选手 ===== -->
+  <section class="section" id="players">
+    <div class="section-head">
+      <div class="section-icon">⭐</div>
+      <span class="section-title">明星选手</span>
+      <span class="section-sub">顶尖战力</span>
+    </div>
+
+    <div class="players-grid" id="playersGrid">
+      <!-- 动态渲染 -->
+    </div>
+  </section>
+
+  <!-- ===== 加入我们 ===== -->
+  <section class="join-us">
+    <div class="join-us-inner">
+      <div class="join-us-title">⚡ 加入我们</div>
+      <div class="join-us-sub">成为 DROP 家族的一员，在三角洲留下你的传说</div>
+      <button class="join-btn" onclick="showJoinModal()">立即加入</button>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    <p class="footer-brand">DROP 电竞</p>
+    <p class="footer-text">三角洲行动 · 无畏先锋</p>
+  </footer>
+</div>
+
+<script>
+// ========== 数据配置 ==========
+// 战绩截图按上传日期排序（最早在最前）
+const BATTLE_RECORDS = [
+  { tag: '背刺', src: 'images/背刺_03.png', date: '2026-06-21' },
+  { tag: '背刺', src: 'images/背刺_02.jpg', date: '2026-06-21' },
+  { tag: '背刺', src: 'images/背刺_01.jpg', date: '2026-06-21' },
+  { tag: '放血', src: 'images/放血_01.png', date: '2026-06-21' },
+  { tag: '丢包', src: 'images/丢包_01.jpg', date: '2026-06-21' },
+];
+
+// 明星选手
+const STAR_PLAYERS = [
+  { name: '喜多川', avatar: 'images/avatar_喜多川.png', rank: 1, specialty: '全能战神', desc: '入队首秀，势不可挡' },
+];
+
+// ========== Canvas 粒子背景 ==========
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // 创建粒子
+  const count = Math.min(80, Math.floor(w * h / 15000));
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.5 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      alpha: Math.random() * 0.5 + 0.1,
+    });
+  }
+
+  // 网格线
+  function drawGrid() {
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.03)';
+    ctx.lineWidth = 0.5;
+    const gap = 60;
+    for (let x = gap; x < w; x += gap) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = gap; y < h; y += gap) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, w, h);
+    drawGrid();
+
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0, 229, 255, ${p.alpha})`;
+      ctx.fill();
+
+      // 连线
+      particles.forEach(p2 => {
+        const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(0, 229, 255, ${0.04 * (1 - dist / 120)})`;
+          ctx.stroke();
+        }
+      });
+    });
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+// ========== 分页状态 ==========
+const PAGE_SIZE = 6;
+let currentPage = 1;
+let currentTag = 'all';
+
+// ========== 渲染战绩 ==========
+function renderRecords(filterTag) {
+  const grid = document.getElementById('recordsGrid');
+  const paginationEl = document.getElementById('pagination');
+  
+  if (filterTag !== undefined) {
+    currentTag = filterTag;
+    currentPage = 1;
+  }
+  
+  let records = BATTLE_RECORDS;
+  if (currentTag && currentTag !== 'all') {
+    records = records.filter(r => r.tag === currentTag);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageRecords = records.slice(start, start + PAGE_SIZE);
+
+  if (records.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <span class="empty-state-icon">📸</span>
+        <p class="empty-state-text">战绩截图即将上线，敬请期待</p>
+      </div>`;
+    paginationEl.innerHTML = '';
+    return;
+  }
+
+  grid.innerHTML = pageRecords.map(r => `
+    <div class="record-card" onclick="previewImage('${r.src}')">
+      <div class="record-img-wrap">
+        <img src="${r.src}" alt="${r.tag}" loading="lazy" />
+        <span class="record-tag ${r.tag}">${r.tag}</span>
+      </div>
+    </div>
+  `).join('');
+
+  // 分页控制
+  if (totalPages > 1) {
+    paginationEl.innerHTML = `
+      <button class="page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="goPage(${currentPage - 1})">◀</button>
+      <span class="page-info"><strong>${currentPage}</strong> / ${totalPages}</span>
+      <button class="page-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="goPage(${currentPage + 1})">▶</button>
+    `;
+  } else {
+    paginationEl.innerHTML = '';
+  }
+}
+
+function goPage(n) {
+  currentPage = n;
+  renderRecords();
+  document.getElementById('records').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ========== 渲染明星选手 ==========
+function renderPlayers() {
+  const grid = document.getElementById('playersGrid');
+
+  if (STAR_PLAYERS.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <span class="empty-state-icon">⭐</span>
+        <p class="empty-state-text">明星选手资料即将上线，敬请期待</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = STAR_PLAYERS.map((p, i) => `
+    <div class="player-card">
+      <div class="player-avatar">
+        ${p.avatar
+          ? `<img src="${p.avatar}" alt="${p.name}" loading="lazy" />`
+          : `<div class="player-placeholder">
+               <span class="player-placeholder-icon">👤</span>
+               <span class="player-placeholder-hint">头像待上传</span>
+             </div>`}
+        <div class="player-rank">${p.rank || i + 1}</div>
+      </div>
+      <div class="player-info">
+        <div class="player-name">${p.name || '待定选手'}</div>
+        <div class="player-specialty">${p.specialty || '擅长内容待补充'}</div>
+        ${p.desc ? `<div class="player-desc">${p.desc}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ========== 图片预览 Modal ==========
+function previewImage(src) {
+  if (!src) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<img src="${src}" alt="战绩截图" />`;
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+
+// ========== 筛选标签事件 ==========
+document.getElementById('filterTabs').addEventListener('click', function(e) {
+  const tab = e.target.closest('.filter-tab');
+  if (!tab) return;
+  this.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  renderRecords(tab.dataset.tag);
+});
+
+// ========== 加入我们弹窗 ==========
+function showJoinModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'join-modal-overlay';
+  overlay.innerHTML = `
+    <div class="join-modal">
+      <button class="join-modal-close" onclick="this.closest('.join-modal-overlay').remove()">✕</button>
+      <h3>⚡ 加入 DROP 家族</h3>
+      <div class="req-line">
+        <span class="req-icon">1</span>
+        <span>向 <span class="req-highlight">drop.qq.com</span> 投递自己的素材</span>
+      </div>
+      <div class="req-line">
+        <span class="req-icon">2</span>
+        <span>包含以下任意玩法的视频或截图：
+          <div class="req-tags">
+            <span class="req-tag">🔫 扫射</span>
+            <span class="req-tag">🗡️ 背刺</span>
+            <span class="req-tag">🩸 放血</span>
+            <span class="req-tag">🧛 吸血</span>
+            <span class="req-tag">🎒 丢包</span>
+          </div>
+        </span>
+      </div>
+      <div class="req-line">
+        <span class="req-icon">3</span>
+        <span>文件命名格式：<span class="req-highlight">你的游戏ID.jpg</span> / <span class="req-highlight">你的游戏ID.mp4</span></span>
+      </div>
+      <div class="req-line">
+        <span class="req-icon">✓</span>
+        <span>审核通过后，你将收到<br><span class="req-highlight">进群邀请邮件</span> 📧</span>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
+// ========== 初始化 ==========
+renderRecords('all');
+renderPlayers();
+</script>
+</body>
+</html>
